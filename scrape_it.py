@@ -135,8 +135,10 @@ for link in links :
 
         except exceptions.StaleElementReferenceException:  
             pass
-    print(len(list(set(product_links))),'Links recived from',link.split('/')[-3])
+    
     print('writing links to file .... ')
+    out_file.seek(0)
+    out_file.truncate()
     json.dump({'links':list(set(product_links))},out_file)
     print('File successfully updated.....')
 
@@ -199,8 +201,12 @@ for link in links :
             for heading,para in zip(headings,paras):
                 medicine_data[medicine_name]['Medicine Information'][heading.text]= para.text 
     print('Writing to file')
+    out_file.seek(0)
+    out_file.truncate()
     json.dump(medicine_data,out_file)
-   
+
+out_file.seek(0)
+out_file.truncate()
 json.dump(medicine_data,out_file)
 print('All data scrapped Successfullly !!!')
 out_file.close()
