@@ -1,5 +1,3 @@
-import urllib.request, urllib.parse, urllib.error
-from bs4 import BeautifulSoup
 from progress.bar import IncrementalBar
 import json 
 from selenium import webdriver
@@ -15,13 +13,6 @@ from selenium.common import exceptions
 import re
 
 
-bar = IncrementalBar('Fetching Categories :',max = 2)
-
-out_file = open('category_links.json','w+' , encoding='ANSI')
-
-link_treasure_box = ['https://www.medplusmart.com/pharmaHome#DrugsbyTherapeutic','https://www.medplusmart.com/pharmaHome#surgicalProduct']
-
-links = list()
 
 browser = None
 
@@ -30,11 +21,19 @@ try:
 except Exception as error:
     print(error)
 # here we get the links of all the categories 
+bar = IncrementalBar('Fetching Categories :',max = 2)
+
+out_file = open('category_links.json','w+' , encoding='ANSI')
+
+link_treasure_box = ['https://www.medplusmart.com/pharmaHome#DrugsbyTherapeutic','https://www.medplusmart.com/pharmaHome#surgicalProduct']
+
+links = list()
+
 i = 0 
 for link in  link_treasure_box :
     try:
                 browser.get(link)
-                html_text = browser.page_source
+                
 
     except Exception as err:
                 print(str(err))
@@ -42,15 +41,15 @@ for link in  link_treasure_box :
     else:
                 print('\nSuccessfully Accessed:',link)
 
-    soup = None
-    if html_text is not None:
-            soup = BeautifulSoup(html_text, 'lxml')
 
-    if i == 0 : category_heads = soup.find('div',attrs={'id':"DrugsbyTherapeutic"}).find('ul', attrs={'class':"drugsCategory"}) ; i+=1 
-    else :  category_heads = soup.find('div',attrs={'id':"surgicalProduct"}).find('ul', attrs={'class':"drugsCategory"})
-    anchor_tags = category_heads.findChildren('a')
-    for tag in anchor_tags :
-        links.append('https://www.medplusmart.com'+tag.get('href', None))
+    if i == 0 : category_heads = browser.find_element_by_xpath('//div[@id="DrugsbyTherapeutic"]').find_elements_by_xpath('//ul[@class="drugsCategory"]') ; i+=1
+    #soup.find('div',attrs={'id':"DrugsbyTherapeutic"}).find('ul', attrs={'class':"drugsCategory"}) ; i+=1 
+    else :  category_heads = browser.find_element_by_xpath('//div[@id="surgicalProduct"]').find_elements_by_xpath('//ul[@class="drugsCategory"]') 
+    # soup.find('div',attrs={'id':"surgicalProduct"}).find('ul', attrs={'class':"drugsCategory"})
+    anchor_tags = map(lambda tag: tag.find_elements_by_tag_name('a'),category_heads)
+    for tag_bag in anchor_tags :
+        for tag in tag_bag :
+            links.append(tag.get_attribute("href"))
     bar.next()
         
 bar.finish()
@@ -73,7 +72,7 @@ for link in links :
     print('Working on :' ,link.split('/')[-3])
     try:
                 browser.get(link)
-                html_text = browser.page_source
+                
 
     except Exception as err:
                 print(str(err))
@@ -82,9 +81,6 @@ for link in links :
                 print('Successfully Accessed:',link)
                 print('Please be patient it may take several minutes .....')
 
-    soup = None
-    if html_text is not None:
-            soup = BeautifulSoup(html_text, 'lxml')
     
     
     while True :
@@ -92,45 +88,36 @@ for link in links :
              element = browser.find_element_by_xpath('//*[@id="pagination"]/ul/li[8]/a')
         except NoSuchElementException:
             time.sleep(1)
-            html_text = browser.page_source
-            soup = BeautifulSoup(html_text, 'lxml')
-            anchor_tags = soup.find_all('a', attrs={"class":"text-default caps searchResultProductName"})
+            
+            anchor_tags = browser.find_elements_by_xpath('//a[@class="text-default caps searchResultProductName"]') 
+            # soup.find_all('a', attrs={"class":"text-default caps searchResultProductName"})
                 
             for tag in anchor_tags :
-                product_links.append('https://www.medplusmart.com'+tag.get('href', None))
+                product_links.append(tag.get_attribute("href"))
                     
             break 
-        
-        
-        
-        
-        
-        
         time.sleep(1)
         element = WebDriverWait(browser, 120 ,ignored_exceptions=(NoSuchElementException,StaleElementReferenceException,))\
                         .until(expected_conditions.presence_of_element_located((By.CSS_SELECTOR, '#pagination > ul > li:nth-child(8) > a')))
         try :
             if element.get_attribute("onclick") :
                 time.sleep(1)
-                html_text = browser.page_source
-                soup = BeautifulSoup(html_text, 'lxml')
-                anchor_tags = soup.find_all('a', attrs={"class":"text-default caps searchResultProductName"})
+                anchor_tags = browser.find_elements_by_xpath('//a[@class="text-default caps searchResultProductName"]') 
+                # soup.find_all('a', attrs={"class":"text-default caps searchResultProductName"})
                 
                 for tag in anchor_tags :
-                    product_links.append('https://www.medplusmart.com'+tag.get('href', None))
-                    
+                    product_links.append(tag.get_attribute("href"))
+                
                 browser.execute_script("arguments[0].click();", element)
                 time.sleep(1)
             else :
                 time.sleep(1)
-                html_text = browser.page_source
-                soup = BeautifulSoup(html_text, 'lxml')
-                anchor_tags = soup.find_all('a', attrs={"class":"text-default caps searchResultProductName"})
+                anchor_tags = browser.find_elements_by_xpath('//a[@class="text-default caps searchResultProductName"]') 
+            # soup.find_all('a', attrs={"class":"text-default caps searchResultProductName"})
                 
                 for tag in anchor_tags :
-                    med_link = 'https://www.medplusmart.com' + tag.get('href', None)
-                    if med_link not in product_links : product_links.append(med_link)
-                    
+                    product_links.append(tag.get_attribute("href"))
+                
                 break 
 
         except exceptions.StaleElementReferenceException:  
@@ -156,50 +143,71 @@ out_file =  open('medicine_data.json','w+' , encoding='ANSI')
 medicine_data = dict()
 for link in links :
     try:
-                browser.get(link)
-                html_text = browser.page_source
+            browser.get(link)
+            # html_text = browser.page_source
 
     except Exception as err:
-                print(str(err))
-                break
+            print(str(err))
+            break
     else:
-                print('\nSuccessfully Accessed:',link)
+            print('\nSuccessfully Accessed:',link)
 
-    soup = None
-    if html_text is not None:
-            soup = BeautifulSoup(html_text, 'lxml')
-
-    medicine_name = soup.find('h1',attrs={'class':'caps margin-t-none'}).text
-    if medicine_name : medicine_data[medicine_name] = dict()
-    mfd = soup.find(lambda tag : tag.name == 'div' and tag.text == 'Manufacture', attrs={'class':'col-xs-4 col-sm-3 col-md-3 padding-none color-label'})
-    if mfd : medicine_data[medicine_name]['Manufacture'] = re.sub('\s+', '',mfd.findNextSibling('div').findChild('span').text)
-    composition = soup.find('a',attrs={"title":"Click to view relevant composition's products"}).text 
-    if composition : medicine_data[medicine_name]['Composition'] = composition
     try :
-        form = browser.find_element_by_xpath('/html/body/div[1]/div/div/div/div[1]/div/div[1]/div/div[2]/div/div/div[2]/div/div[1]/div/div[7]/span').text
+        medicine_name = browser.find_element_by_xpath('//h1[@class="caps margin-t-none"]').text 
+        #soup.find('h1',attrs={'class':'caps margin-t-none'}).text
+        medicine_data[medicine_name] = dict()
+    except NoSuchElementException :
+        continue
+    try :
+        mfd = browser.find_element_by_xpath('//div[text()="Manufacture"][@class="col-xs-4 col-sm-3 col-md-3 padding-none color-label"]//following-sibling::div/child::span').text
+        #soup.find(lambda tag : tag.name == 'div' and tag.text == 'Manufacture', attrs={'class':'col-xs-4 col-sm-3 col-md-3 padding-none color-label'})
+        medicine_data[medicine_name]['Manufacture'] = re.sub('\s+', '', mfd) #mfd.findNextSibling('div').findChild('span').text
+    except NoSuchElementException :
+        pass    
+    try :
+        composition = browser.find_element_by_xpath('//a[@title="{}"]'.format("Click to view relevant composition's products")).text  
+        #soup.find('a',attrs={"title":"Click to view relevant composition's products"}).text 
+        medicine_data[medicine_name]['Composition'] = composition
+    except NoSuchElementException :
+        pass    
+    try :
+        form = browser.find_element_by_xpath('//div[text()="Form"][@class="col-xs-4 col-sm-3 col-md-3 padding-none color-label"]//following-sibling::div/child::span').text
+        medicine_data[medicine_name]['Form'] = form
     except exceptions.NoSuchElementException :
-        pass        
-    if form : medicine_data[medicine_name]['Form'] = form
-    pack_size = soup.find(lambda tag : tag.name == 'div' and tag.text == 'Pack Size' , attrs={'class':'col-xs-4 col-sm-3 col-md-3 padding-none color-label'})
-    if pack_size : medicine_data[medicine_name]['Pack Size'] = re.sub('\s+', '',pack_size.findNextSibling('div').findChild('span').text)
-    price = soup.find('span',attrs={'class':'lead color-red'})
-    if price : medicine_data[medicine_name]['MRP'] = price.text 
+        pass         
+    try :
+        pack_size = browser.find_element_by_xpath('//div[text()="Pack Size"][@class="col-xs-4 col-sm-3 col-md-3 padding-none color-label"]//following-sibling::div/child::span').text 
+        # soup.find(lambda tag : tag.name == 'div' and tag.text == 'Pack Size' , attrs={'class':'col-xs-4 col-sm-3 col-md-3 padding-none color-label'})
+        medicine_data[medicine_name]['Pack Size'] = re.sub('\s+', '', pack_size) #pack_size.findNextSibling('div').findChild('span').text
+    except NoSuchElementException :
+        pass    
+    try :
+        price = browser.find_element_by_xpath('//span[@class="lead color-red"]')
+        # soup.find('span',attrs={'class':'lead color-red'})
+        medicine_data[medicine_name]['MRP'] = price.text 
+    except NoSuchElementException :
+        pass
+        
     if composition is not None or composition != 'Not Available' : 
-        composition_parts_num = len(composition.split('+'))
+        # composition_parts_num = len(composition.split('+'))
         medicine_data[medicine_name]['Medicine Information'] = dict()
-        if composition_parts_num > 1 :
-            for i in range(1,composition_parts_num+1) :
-                component = soup.find('div', attrs={'id':('tab'+ str(i))})
-                headings = component.find_all('h4', attrs={'class':'color-blue'})
-                paras = component.find_all('p')
-                for heading,para in zip(headings,paras):
-                    medicine_data[medicine_name]['Medicine Information'][heading.text]= para.text 
-        else : 
-            component = soup.find('div', attrs={'id':'tab1'})
-            headings = component.find_all('h4', attrs={'class':'color-blue'})
-            paras = component.find_all('p')
-            for heading,para in zip(headings,paras):
-                medicine_data[medicine_name]['Medicine Information'][heading.text]= para.text 
+        # if composition_parts_num > 1 :
+        #     for i in range(1,composition_parts_num+1) :
+        try :
+                    # component = browser.find_element_by_xpath('//div[@id="{}"]'.format('tab'+str(i))) 
+                    # soup.find('div', attrs={'id':('tab'+ str(i))})
+                    headings = browser.find_elements_by_xpath('//div[@class="tabbable"]//child::h4') 
+                    print(len(list(map(lambda heading: heading.text,headings))))
+                    # component.find_all('h4', attrs={'class':'color-blue'})
+                    paras = browser.find_elements_by_xpath('//div[@class="row-fluid margin-l-r-20-m"]//child::p')
+                    print(len(list(map(lambda heading : heading.text,paras))))
+                    # component.find_all('p')
+                    for heading,para in zip(headings,paras):
+                        medicine_data[medicine_name]['Medicine Information'][heading.get_attribute('textContent')]= para.get_attribute('textContent') 
+        except NoSuchElementException:
+                    continue
+    
+    
     print('Writing to file')
     out_file.seek(0)
     out_file.truncate()
